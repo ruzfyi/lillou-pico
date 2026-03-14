@@ -39,7 +39,7 @@ def toggle_drone():
     drone_launch.value(1)
 
 # minibot release servo
-release_pin = machine.Pin(15)
+release_pin = machine.Pin(14)
 release = PWM(release_pin)
 release.freq(50)
 
@@ -293,16 +293,6 @@ def drone_reset():
 def drone_move():
     set_drone_angle(0)
 
-# camera release control
-def set_camera_release_angle(angle):
-    duty = min_duty + int((angle/180) * (max_duty - min_duty))
-    cam_release.duty_u16(duty)
-
-def release_camera():
-    set_camera_release_angle(150)
-
-def release_camera_reset():
-    set_camera_release_angle(90)
 
 # sweeper control
 def set_sweeper_angle(angle):
@@ -456,15 +446,6 @@ def button_to_keypad():
 def keypad_task():
     print("AT_KEYPAD")
     receive = get_command("KEYPAD_DONE", "OK")
-
-def keypad_to_home():
-    forward_ms(2000)
-    time.sleep(0.5)
-    left_ms(1500)
-    time.sleep(0.5)
-    forward_ms(2000)
-    time.sleep(0.5)
-
     
 def to_pressure_plate():
     forward_ms(2000)
@@ -483,7 +464,6 @@ def to_pressure_plate():
     time.sleep(.5)    
 
 # initial halt till PI requests us
-receive = get_command("PI_READY", "OK")
                       
 # testing sweep_out
 # sweeper_out()
@@ -492,37 +472,14 @@ receive = get_command("PI_READY", "OK")
 led = Pin(16, Pin.OUT)
 led.off()
 
-sweeper_reset()
-print("sweeper reset")    
-
-release_minibot_reset()
-print("minibot release reset")
-
-release_camera_reset()
-print("camera release reset")
-
-drone_reset()
-print("drone servo reset")
-
 print("prepping photoresistor")
 photores_value = ADC(26) # GP26
 
 value = photores_value.read_u16() # Reads 0-65535
 print("photoresistor initialized")
 
-#waiting for photoresistor threshold to be reached
-print("STARTING UP")
-
-while (value > 10000):
-    value = photores_value.read_u16()
-    print(value)
-    time.sleep(0.2)
-print("PHOTO_RESISTOR WORKED")
-
-led.on()
-
 #everything under here is the robot's logic (move forward, left, right and anything)
-
+"""
 while True:
     
     button_task()
@@ -538,11 +495,33 @@ while True:
     stop_motors()
 
     keypad_task()
-
-    keypad_to_home()
-
-    stop_motors()
-
-    print("LIST_COLORS")
     
     break
+
+"""
+
+# camera release control
+def set_camera_release_angle(angle):
+    duty = min_duty + int((angle/180) * (max_duty - min_duty))
+    cam_release.duty_u16(duty)
+
+def release_camera():
+    set_camera_release_angle(150)
+
+def release_camera_reset():
+    set_camera_release_angle(90)
+
+
+for n in range(0, 150, 10):
+	print(f"Current angle: {n}")
+	set_camera_release_angle(n)
+	time.sleep(0.5)
+
+#angle 150 
+#release_camera_reset()
+
+#angle 90
+#release_camera()
+
+
+
