@@ -26,19 +26,32 @@ def get_command(command, ack):
 
 #receive = get_command("PI_READY", "PICO_READY")
 
-#crank servo set up
-crank_pin = machine.Pin(15)
-crank = machine.PWM(crank_pin)
-crank.freq(50)
+# drone servo
+drone_pin = machine.Pin(18)
+drone = machine.PWM(drone_pin)
+drone.freq(50)
 
-# release servo frequency
+drone_launch = Pin(17, Pin.OUT)
+drone_launch.value(0)
+
+def toggle_drone():
+    drone_launch.value(0)
+    drone_launch.value(1)
+
+# minibot release servo
 release_pin = machine.Pin(14)
 release = PWM(release_pin)
 release.freq(50)
 
+# sweeper servo
 sweeper_pin = machine.Pin(13)
 sweeper = PWM(sweeper_pin)
 sweeper.freq(50)
+
+# camera release servo
+cam_release_pin = machine.Pin(8)
+cam_release = machine.PWM(cam_release_pin)
+release.freq(50)
 
 # #minibot servo set up
 # minibot_pin = machine.Pin(14)
@@ -65,7 +78,7 @@ FULL_FORWARD = 6554
 FULL_REVERSE = 3277
 
 m1_in1 = 7
-m1_in2 = 8
+m1_in2 = 22
 m1_en = 6
 
 m2_in1 = 10
@@ -269,20 +282,40 @@ def left_ms(duration_ms):
     time.sleep_ms(duration_ms)
     stop_motors()
 
-# sweeper angle control
+# drone control
+def set_drone_angle(angle):
+    duty = min_duty + int((angle/180) * (max_duty - min_duty))
+    drone.duty_u16(duty)
+
+def drone_reset():
+    set_drone_angle(45)
+
+def drone_move():
+    set_drone_angle(0)
+
+# camera release control
+def set_camera_release_angle(angle):
+    duty = min_duty + int((angle/180) * (max_duty - min_duty))
+    cam_release.duty_u16(duty)
+
+def release_camera():
+    set_camera_release_angle(150)
+
+def release_camera_reset():
+    set_camera_release_angle(90)
+
+# sweeper control
 def set_sweeper_angle(angle):
     duty = min_duty + int((angle/180) * (max_duty - min_duty))
     sweeper.duty_u16(duty)
 
-# sweep
 def sweeper_out():
     set_sweeper_angle(120)
 
-# no sweep
 def sweeper_reset():
     set_sweeper_angle(90)
 
-# minibot angle control
+# minibot release control
 def set_release_angle(angle):
     duty = min_duty + int((angle/180) * (max_duty - min_duty))
     release.duty_u16(duty)
@@ -294,11 +327,11 @@ def release_minibot():
 
     set_release_angle(90)
 
-# the default for this one is 90
 def release_minibot_reset():
     set_release_angle(90)
     time.sleep(2)
 
+# button tasks
 def button_task():
     print("sending start signal to PI")
     print("START")
@@ -309,11 +342,19 @@ def button_task():
     left_ms(700)
     time.sleep(0.5)
     
+
     print("Realising minibot")
     release_minibot()
-    print("minibot should be released")
+    toggle_drone()
+    print("Minibot should be released")
+    time.sleep(1)
+    drone_move()
 
-    print("continuing to button")
+    print("Releasing camera")
+    release_camera()
+    print("Camera should be released")
+
+    print("Continuing to button")
 
     forward_ms(1250)
     time.sleep(0.5)
@@ -405,11 +446,11 @@ def crank_task():
     crank.duty_u16(STOP)
 
 def button_to_keypad():
-    right_ms(2500)
+    right_ms(2750)
     time.sleep(0.5)
-    left_rotation(1050)
+    left_rotation(1150)
     time.sleep(0.5)
-    forward_ms(1000)
+    left_ms(1500)
     time.sleep(0.5)
 
 def keypad_task():
@@ -438,16 +479,27 @@ receive = get_command("PI_READY", "OK")
 # testing sweep_out
 # sweeper_out()
 # time.sleep(1)
+
+led = Pin(16, Pin.OUT)
+led.off()
+
 sweeper_reset()
 print("sweeper reset")    
+
 release_minibot_reset()
-print("release reset")
+print("minibot release reset")
+
+release_camera_reset()
+print("camera release reset")
+
+drone_reset()
+print("drone servo reset")
 
 print("prepping photoresistor")
 photores_value = ADC(26) # GP26
 
 value = photores_value.read_u16() # Reads 0-65535
-
+print("photoresistor initialized")
 
 #waiting for photoresistor threshold to be reached
 print("STARTING UP")
@@ -457,6 +509,8 @@ while (value > 10000):
     print(value)
     time.sleep(0.2)
 print("PHOTO_RESISTOR WORKED")
+
+led.on()
 
 #everything under here is the robot's logic (move forward, left, right and anything)
 
@@ -468,18 +522,12 @@ while True:
 
     print("COLOR_1_READY")
     
-    #button_to_crank()
-
-    #stop_motors()
-
-    #position_crank()
+    response = get_command("COLOR_1_DONE", "OK")
     
-    #crank_task()
-
     button_to_keypad()
 
+    stop_motors()
+
     keypad_task()
-    
-    #to_pressure_plate()    
     
     break
